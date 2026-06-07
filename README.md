@@ -21,7 +21,6 @@ PassGuard helps users evaluate password security using entropy calculations, cra
 * Flask
 * HTML
 * CSS
-* JavaScript
 
 ## Screenshots
 
@@ -50,7 +49,7 @@ pip install -r requirements.txt
 Run the application:
 
 ```bash
-python app.py
+python passguard.py
 ```
 
 Open:
