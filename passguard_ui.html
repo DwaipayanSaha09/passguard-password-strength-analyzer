@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PassGuard — Password Strength Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080c14;
+      --surface: #0e1421;
+      --surface2: #141c2e;
+      --border: #1e2d4a;
+      --text: #d4e4ff;
+      --muted: #4a6080;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --pass: #22c55e;
+      --fail: #334155;
+      --fail-text: #3d5068;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(59,130,246,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px 80px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: slideDown 0.7s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.3);
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #d4e4ff 0%, #7cb9ff 50%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 400;
+      font-family: var(--font-mono);
+    }
+
+    /* Main card */
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      animation: fadeUp 0.7s 0.15s cubic-bezier(0.16,1,0.3,1) both;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 32px 64px rgba(0,0,0,0.5);
+    }
+
+    /* Input area */
+    .input-group {
+      position: relative;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 56px 16px 18px;
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .toggle-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+    .toggle-btn:hover { color: var(--text); }
+
+    /* Strength meter */
+    .meter-section {
+      margin-bottom: 28px;
+    }
+
+    .meter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .strength-label {
+      font-size: 15px;
+      font-weight: 600;
+      transition: color 0.4s;
+      letter-spacing: -0.01em;
+    }
+
+    .strength-score {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .meter-track {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 100px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1), background 0.4s;
+      position: relative;
+    }
+
+    .meter-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: border-color 0.3s;
+    }
+
+    .stat-box:hover { border-color: rgba(59,130,246,0.4); }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      transition: color 0.3s;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Checks grid */
+    .checks-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .checks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      cursor: default;
+    }
+
+    .check-item.pass {
+      background: rgba(34, 197, 94, 0.06);
+      border-color: rgba(34, 197, 94, 0.2);
+    }
+
+    .check-item.fail {
+      background: var(--surface2);
+      border-color: var(--border);
+    }
+
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 11px;
+      transition: all 0.35s;
+    }
+
+    .check-item.pass .check-icon {
+      background: rgba(34,197,94,0.15);
+      color: var(--pass);
+    }
+
+    .check-item.fail .check-icon {
+      background: var(--surface);
+      color: var(--fail-text);
+    }
+
+    .check-text {
+      font-size: 12px;
+      color: var(--muted);
+      transition: color 0.3s;
+      line-height: 1.3;
+    }
+
+    .check-item.pass .check-text { color: #8cb8a0; }
+
+    /* Tip banner */
+    .tip-banner {
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: rgba(59,130,246,0.06);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 10px;
+      font-size: 13px;
+      color: #7cb9ff;
+      min-height: 44px;
+      transition: all 0.3s;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tip-banner span { opacity: 0.6; }
+
+    /* Placeholder state */
+    .placeholder {
+      text-align: center;
+      padding: 40px 0 10px;
+      color: var(--muted);
+    }
+
+    .placeholder svg { margin-bottom: 12px; opacity: 0.3; }
+    .placeholder p { font-size: 14px; font-family: var(--font-mono); }
+
+    /* Animations */
+    @keyframes slideDown {
+      from { opacity:0; transform: translateY(-24px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(24px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    .site-footer {
+      width: 100%;
+      max-width: 680px;
+      margin-top: 40px;
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+      padding-bottom: 12px;
+      animation: fadeUp 0.7s 0.3s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .footer-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .footer-brand .brand-name {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #d4e4ff, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+
+    .footer-brand .brand-role {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .footer-brand .brand-tagline {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 220px;
+      line-height: 1.5;
+    }
+
+    /* Social icons */
+    .footer-socials {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .socials-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .social-links {
+      display: flex;
+      gap: 10px;
+    }
+
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-decoration: none;
+      transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .social-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-glow);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59,130,246,0.2);
+    }
+
+    .social-link svg { width: 16px; height: 16px; }
+
+    /* Terms row */
+    .footer-terms {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-copy {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 18px;
+    }
+
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+      position: relative;
+    }
+
+    .footer-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 1px;
+      background: var(--accent);
+      transition: width 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--accent); }
+    .footer-links a:hover::after { width: 100%; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+      animation: fadeUp 0.35s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { color: var(--text); border-color: var(--accent); }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #d4e4ff, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .modal-date {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .modal-section {
+      margin-bottom: 18px;
+    }
+
+    .modal-section h3 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+    }
+
+    .modal-section p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #22c55e;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.25);
+      padding: 5px 10px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 520px) {
+      .checks-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .card { padding: 24px 18px; }
+      .footer-top { flex-direction: column; }
+      .footer-socials { align-items: flex-start; }
+      .footer-terms { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <div class="header">
+    <div class="badge">🔐 Security Tool</div>
+    <h1>PassGuard</h1>
+    <p class="subtitle">Real-time password strength analysis</p>
+  </div>
+
+  <div class="card">
+    <!-- Input -->
+    <div class="input-group">
+      <label for="pw-input">Enter Password</label>
+      <div class="input-wrap">
+        <input type="password" id="pw-input" placeholder="Type your password…" autocomplete="off" spellcheck="false"/>
+        <button class="toggle-btn" id="toggle-vis" title="Toggle visibility" aria-label="Toggle password visibility">
+          <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Strength meter -->
+    <div class="meter-section" id="meter-section" style="display:none">
+      <div class="meter-header">
+        <span class="strength-label" id="strength-label">—</span>
+        <span class="strength-score" id="strength-score"></span>
+      </div>
+      <div class="meter-track">
+        <div class="meter-fill" id="meter-fill"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row" style="display:none">
+      <div class="stat-box">
+        <div class="stat-label">Length</div>
+        <div class="stat-value" id="stat-length">0</div>
+        <div class="stat-sub">characters</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Entropy</div>
+        <div class="stat-value" id="stat-entropy">0</div>
+        <div class="stat-sub">bits</div>
+      </div>
+      <div class="stat-box" style="grid-column: span 2">
+        <div class="stat-label">Estimated crack time</div>
+        <div class="stat-value" id="stat-crack" style="font-size:15px">—</div>
+        <div class="stat-sub">at 10 billion guesses/second</div>
+      </div>
+    </div>
+
+    <!-- Checks -->
+    <div id="checks-section" style="display:none">
+      <div class="checks-title">Security Checks</div>
+      <div class="checks-grid" id="checks-grid"></div>
+    </div>
+
+    <!-- Tip -->
+    <div class="tip-banner" id="tip-banner" style="display:none">
+      <span>💡</span>
+      <span id="tip-text">Type a password to begin analysis</span>
+    </div>
+
+    <!-- Placeholder -->
+    <div class="placeholder" id="placeholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <p>Start typing to analyze your password</p>
+    </div>
+  </div>
+
+  <!-- ── Professional Footer ───────────────────────────── -->
+  <footer class="site-footer">
+
+    <div class="footer-top">
+      <!-- Brand / Credit -->
+      <div class="footer-brand">
+        <div class="brand-name">Dwaipayan Saha</div>
+        <!-- <div class="brand-role">Cybersecurity Project</div> -->
+        <p class="brand-tagline">PassGuard — A personal tool for real-time password strength analysis.</p>
+      </div>
+
+      <!-- Social Links -->
+      <div class="footer-socials">
+        <span class="socials-label">Find me on</span>
+        <div class="social-links">
+
+          <!-- GitHub -->
+          <a href="https://github.com/DwaipayanSaha09" target="_blank" rel="noopener" class="social-link" title="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>
+          </a>
+
+          <!-- LinkedIn -->
+          <a href="https://www.linkedin.com/in/dwaipayan-saha09/" target="_blank" rel="noopener" class="social-link" title="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+          </a>
+
+          <!-- Instagram -->
+          <a href="https://www.instagram.com/iam_dwaipayansaha" target="_blank" rel="noopener" class="social-link" title="Instagram">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
+            </svg>
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom bar: copyright + legal links -->
+    <div class="footer-terms">
+      <span class="footer-copy">© 2025 Dwaipayan Saha. All rights reserved.</span>
+      <nav class="footer-links">
+        <a href="#" onclick="openModal('terms'); return false;">Terms of Use</a>
+        <a href="#" onclick="openModal('privacy'); return false;">Privacy Policy</a>
+        <a href="#" onclick="openModal('about'); return false;">About</a>
+      </nav>
+    </div>
+
+  </footer>
+</div><!-- end .wrapper -->
+
+<!-- ── Terms of Use Modal ─────────────────────────────── -->
+<div class="modal-overlay" id="modal-terms">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('terms')">✕</button>
+    <h2>Terms of Use</h2>
+    <p class="modal-date">Effective: January 2025 · PassGuard by Dwaipayan Saha</p>
+    <div class="modal-section">
+      <h3>1. Acceptance</h3>
+      <p>By using PassGuard, you agree to these terms. This is a personal cybersecurity project provided for educational and informational purposes only.</p>
+    </div>
+    <div class="modal-section">
+      <h3>2. No Warranty</h3>
+      <p>PassGuard is provided "as is" without any warranty. Strength scores and crack-time estimates are approximations based on standard heuristics — they do not guarantee the absolute security of any password.</p>
+    </div>
+    <div class="modal-section">
+      <h3>3. Responsible Use</h3>
+      <p>This tool is intended solely for evaluating the strength of your own passwords. Do not use it to test, attack, or assess credentials belonging to others.</p>
+    </div>
+    <div class="modal-section">
+      <h3>4. Intellectual Property</h3>
+      <p>All design, code, and content of PassGuard is the intellectual property of Dwaipayan Saha unless otherwise stated. Unauthorized reproduction is prohibited.</p>
+    </div>
+    <div class="modal-section">
+      <h3>5. Changes</h3>
+      <p>These terms may be updated at any time. Continued use of the tool constitutes acceptance of any revised terms.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Privacy Policy Modal ──────────────────────────── -->
+<div class="modal-overlay" id="modal-privacy">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('privacy')">✕</button>
+    <h2>Privacy Policy</h2>
+    <p class="modal-date">Effective: January 2025 · PassGuard by Dwaipayan Saha</p>
+    <div class="privacy-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      Zero data collection — analysis is 100% local
+    </div>
+    <div class="modal-section">
+      <h3>What We Collect</h3>
+      <p>Nothing. PassGuard performs all password analysis directly in your browser using JavaScript. No password, keystroke, or personal data is ever sent to any server, stored in any database, or shared with any third party.</p>
+    </div>
+    <div class="modal-section">
+      <h3>Cookies & Tracking</h3>
+      <p>PassGuard does not use cookies, analytics trackers, or any form of user tracking. Your session is completely private.</p>
+    </div>
+    <div class="modal-section">
+      <h3>Third-Party Services</h3>
+      <p>Google Fonts are loaded for typography. This is the only external request made by the page and does not involve your password data in any way.</p>
+    </div>
+    <div class="modal-section">
+      <h3>Contact</h3>
+      <p>For any privacy concerns, reach out via <a href="https://www.linkedin.com/in/dwaipayan-saha09/" target="_blank" style="color: var(--accent);">LinkedIn</a> or <a href="https://github.com/DwaipayanSaha09" target="_blank" style="color: var(--accent);">GitHub</a>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── About Modal ───────────────────────────────────── -->
+<div class="modal-overlay" id="modal-about">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('about')">✕</button>
+    <h2>About PassGuard</h2>
+    <p class="modal-date">v1.0 · Built by Dwaipayan Saha</p>
+    <div class="modal-section">
+      <h3>The Project</h3>
+      <p>PassGuard is a personal cybersecurity project focused on helping users understand and improve their password hygiene through real-time analysis, entropy calculations, and estimated crack times.</p>
+    </div>
+    <div class="modal-section">
+      <h3>How It Works</h3>
+      <p>Passwords are scored across 9 security checks covering length, character variety, repetition patterns, and common password detection. Entropy is calculated based on charset size, and crack time is estimated at 10 billion guesses per second — representative of modern GPU attacks.</p>
+    </div>
+    <div class="modal-section">
+      <h3>Built With</h3>
+      <p>Python · Flask · Vanilla JavaScript · HTML/CSS — no frameworks, no trackers, no data collection.</p>
+    </div>
+    <div class="modal-section">
+      <h3>Creator</h3>
+      <p>Dwaipayan Saha — cybersecurity enthusiast and developer. Connect on
+        <a href="https://github.com/DwaipayanSaha09" target="_blank" style="color:var(--accent)">GitHub</a>,
+        <a href="https://www.linkedin.com/in/dwaipayan-saha09/" target="_blank" style="color:var(--accent)">LinkedIn</a>, or
+        <a href="https://www.instagram.com/iam_dwaipayansaha" target="_blank" style="color:var(--accent)">Instagram</a>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('pw-input');
+  const toggleBtn = document.getElementById('toggle-vis');
+  const eyeIcon = document.getElementById('eye-icon');
+  const meterSection = document.getElementById('meter-section');
+  const statsRow = document.getElementById('stats-row');
+  const checksSection = document.getElementById('checks-section');
+  const tipBanner = document.getElementById('tip-banner');
+  const placeholder = document.getElementById('placeholder');
+
+  const meterFill = document.getElementById('meter-fill');
+  const strengthLabel = document.getElementById('strength-label');
+  const strengthScore = document.getElementById('strength-score');
+  const statLength = document.getElementById('stat-length');
+  const statEntropy = document.getElementById('stat-entropy');
+  const statCrack = document.getElementById('stat-crack');
+  const checksGrid = document.getElementById('checks-grid');
+  const tipText = document.getElementById('tip-text');
+
+  const checkLabels = {
+    length:        "≥ 8 characters",
+    length_strong: "≥ 12 characters",
+    uppercase:     "Uppercase letter",
+    lowercase:     "Lowercase letter",
+    digit:         "Contains a number",
+    special:       "Special character",
+    no_spaces:     "No spaces",
+    no_repeat:     "No repeating chars",
+    no_common:     "Not a common password"
+  };
+
+  let debounceTimer;
+
+  toggleBtn.addEventListener('click', () => {
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    eyeIcon.innerHTML = isPassword
+      ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+      : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  });
+
+  // Trigger on every keystroke (real-time)
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(analyze, 120);
+  });
+
+  // Also trigger immediately on Enter key
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      clearTimeout(debounceTimer);
+      analyze();
+    }
+  });
+
+  // ── Pure JS password analysis (no server needed) ──────────────────────────
+
+  function calculateEntropy(pw) {
+    let charset = 0;
+    if (/[a-z]/.test(pw)) charset += 26;
+    if (/[A-Z]/.test(pw)) charset += 26;
+    if (/[0-9]/.test(pw)) charset += 10;
+    if (/[^a-zA-Z0-9]/.test(pw)) charset += 32;
+    if (charset === 0) return 0;
+    return Math.round(pw.length * Math.log2(charset) * 10) / 10;
+  }
+
+  function estimateCrackTime(entropy) {
+    const guessesPerSec = 1e10;
+    const combinations = Math.pow(2, entropy);
+    const seconds = combinations / guessesPerSec;
+    if (seconds < 1)          return 'Instantly';
+    if (seconds < 60)         return `${Math.floor(seconds)} seconds`;
+    if (seconds < 3600)       return `${Math.floor(seconds / 60)} minutes`;
+    if (seconds < 86400)      return `${Math.floor(seconds / 3600)} hours`;
+    if (seconds < 31536000)   return `${Math.floor(seconds / 86400)} days`;
+    if (seconds < 3.154e9)    return `${Math.floor(seconds / 31536000)} years`;
+    if (seconds < 3.154e12)   return `${Math.floor(seconds / 3.154e9)}K years`;
+    return 'Centuries+';
+  }
+
+  const COMMON = new Set([
+    'password','123456','password123','qwerty','letmein',
+    'admin','welcome','monkey','dragon','iloveyou','sunshine',
+    'princess','football','master','abc123','123456789','1234567'
+  ]);
+
+  function checkPasswordStrength(pw) {
+    const length    = pw.length;
+    const hasUpper  = /[A-Z]/.test(pw);
+    const hasLower  = /[a-z]/.test(pw);
+    const hasDigit  = /[0-9]/.test(pw);
+    const hasSpec   = /[^a-zA-Z0-9]/.test(pw);
+    const noSpaces  = !pw.includes(' ');
+    const noRepeat  = !/(.)\1{2,}/.test(pw);
+    const noCommon  = !COMMON.has(pw.toLowerCase());
+
+    const checks = {
+      length:        { pass: length >= 8,              label: '≥ 8 characters',        tip: 'Use at least 8 characters' },
+      length_strong: { pass: length >= 12,             label: '≥ 12 characters',       tip: 'Aim for 12+ characters for stronger security' },
+      uppercase:     { pass: hasUpper,                 label: 'Uppercase letter (A–Z)', tip: 'Add at least one capital letter' },
+      lowercase:     { pass: hasLower,                 label: 'Lowercase letter (a–z)', tip: 'Include some lowercase letters' },
+      digit:         { pass: hasDigit,                 label: 'Contains a number',      tip: 'Add at least one digit (0–9)' },
+      special:       { pass: hasSpec,                  label: 'Special character',      tip: 'Use symbols like !@#$%^&*' },
+      no_spaces:     { pass: noSpaces,                 label: 'No spaces',              tip: 'Remove any spaces from the password' },
+      no_repeat:     { pass: noRepeat,                 label: 'No repeating chars',     tip: 'Avoid patterns like "aaa" or "111"' },
+      no_common:     { pass: noCommon,                 label: 'Not a common password',  tip: 'Avoid obvious words like "password"' },
+    };
+
+    // Weighted score → 0–100
+    let score = 0;
+    if (checks.length.pass)        score += 1;
+    if (checks.length_strong.pass) score += 1;
+    if (hasUpper && hasLower)      score += 1;
+    if (checks.digit.pass)         score += 1;
+    if (checks.special.pass)       score += 1;
+    if (checks.no_repeat.pass)     score += 0.5;
+    if (checks.no_common.pass)     score += 0.5;
+    const scorePct = Math.min(100, Math.round((score / 6) * 100));
+
+    let label, color;
+    if      (scorePct < 25) { label = 'Very Weak';  color = '#ff4444'; }
+    else if (scorePct < 50) { label = 'Weak';        color = '#ff8800'; }
+    else if (scorePct < 75) { label = 'Moderate';    color = '#ffcc00'; }
+    else if (scorePct < 90) { label = 'Strong';      color = '#88cc00'; }
+    else                    { label = 'Very Strong'; color = '#00cc66'; }
+
+    const entropy = calculateEntropy(pw);
+    return { score: scorePct, label, color, entropy, crack_time: estimateCrackTime(entropy), checks, length };
+  }
+
+  function analyze() {
+    const pw = input.value;
+    if (!pw) { showPlaceholder(); return; }
+    const data = checkPasswordStrength(pw);
+    render(data);
+  }
+
+  function showPlaceholder() {
+    placeholder.style.display = 'block';
+    meterSection.style.display = 'none';
+    statsRow.style.display = 'none';
+    checksSection.style.display = 'none';
+    tipBanner.style.display = 'none';
+  }
+
+  function render(data) {
+    placeholder.style.display = 'none';
+    meterSection.style.display = 'block';
+    statsRow.style.display = 'grid';
+    checksSection.style.display = 'block';
+    tipBanner.style.display = 'flex';
+
+    // Meter
+    meterFill.style.width = data.score + '%';
+    meterFill.style.background = `linear-gradient(90deg, ${data.color}aa, ${data.color})`;
+    strengthLabel.textContent = data.label;
+    strengthLabel.style.color = data.color;
+    strengthScore.textContent = `${data.score}/100`;
+
+    // Stats
+    statLength.textContent = data.length;
+    statCrack.textContent = data.crack_time;
+    statEntropy.textContent = data.entropy + ' bits';
+
+    // Color crack time
+    const criticalWords = ['Instantly', 'seconds', 'minutes'];
+    const isCritical = criticalWords.some(w => data.crack_time.includes(w));
+    statCrack.style.color = isCritical ? '#ff4444' : data.color;
+
+    // Checks
+    checksGrid.innerHTML = '';
+    for (const [key, check] of Object.entries(data.checks)) {
+      const el = document.createElement('div');
+      el.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
+      el.innerHTML = `
+        <div class="check-icon">${check.pass ? '✓' : '○'}</div>
+        <div class="check-text">${checkLabels[key] || check.label}</div>
+      `;
+      checksGrid.appendChild(el);
+    }
+
+    // Tips: find first failed check
+    const failedTips = Object.values(data.checks)
+      .filter(c => !c.pass)
+      .map(c => c.tip);
+
+    tipText.textContent = failedTips.length > 0
+      ? failedTips[0]
+      : '✅ Excellent password — all checks passed!';
+  }
+  // ── Modal logic ───────────────────────────────────────
+  function openModal(id) {
+    document.getElementById('modal-' + id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal(id) {
+    document.getElementById('modal-' + id).classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // Close on backdrop click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open').forEach(m => {
+        m.classList.remove('open');
+        document.body.style.overflow = '';
+      });
+    }
+  });
+</script>
+</body>
+</html>
