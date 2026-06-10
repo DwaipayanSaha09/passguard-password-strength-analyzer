@@ -21,6 +21,7 @@ PassGuard helps users evaluate password security using entropy calculations, cra
 * Flask
 * HTML
 * CSS
+* JS
 
 ## Screenshots
 
