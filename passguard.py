@@ -121,7 +121,7 @@ def estimate_crack_time(entropy):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("passguard_ui.html")
 
 
 @app.route("/check", methods=["POST"])
