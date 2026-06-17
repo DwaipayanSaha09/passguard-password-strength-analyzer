@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PassGuard — Password Strength Analyzer</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="passguard_style.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/passguard_style.css') }}">
 </head>
 <body>
 <div class="wrapper">
@@ -262,6 +262,6 @@
 </div>
 
 <!-- External JS — loaded last so DOM is ready -->
-<script src="passguard_script.js"></script>
+<script src="{{ url_for('static', filename='js/passguard_script.js') }}"></script>
 </body>
 </html>
